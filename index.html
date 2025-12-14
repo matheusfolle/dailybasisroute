@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DailyBasisRoute - Sistema de Rotina Gamificado</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+        color: #333;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      .header p {
+        color: #666;
+        font-size: 1.1em;
+        text-align: center;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s;
+      }
+
+      .stat-card:hover {
+        transform: translateY(5px);
+      }
+
+      .stat-number {
+        font-size: 2.5em;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .stat-label {
+        color: #666;
+        margin-top: 5px;
+        font-size: 0.9em;
+      }
+
+      .tasks-container {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        margin-bottom: 20px;
+      }
+
+      .section-title {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 3px solid #667eea;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .section-points {
+        font-size: 0.8em;
+        color: #764ba2;
+        font-weight: normal;
+      }
+
+      .task-item {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: all 0.3s;
+        cursor: pointer;
+        border: 2px solid transparent;
+      }
+
+      .task-item:hover {
+        background: #e9ecef;
+      }
+
+      .task-item.completed {
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        border: 2px solid #667eea;
+      }
+
+      .checkbox {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 3px solid #667eea;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.3s;
+      }
+
+      .task-item.completed .checkbox {
+        background: #667eea;
+      }
+
+      .checkbox::after {
+        content: "✓";
+        color: white;
+        font-size: 1.2em;
+        font-weight: bold;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .task-item.completed .checkbox::after {
+        opacity: 1;
+      }
+
+      .task-info {
+        flex-grow: 1;
+      }
+
+      .task-name {
+        font-weight: 600;
+        font-size: 1.1em;
+        margin-bottom: 5px;
+      }
+
+      .task-details {
+        color: #666;
+        font-size: 0.9em;
+      }
+
+      .task-points {
+        font-size: 1.3em;
+        font-weight: bold;
+        color: #764ba2;
+        flex-shrink: 0;
+      }
+
+      .progress-bar {
+        background: #e9ecef;
+        border-radius: 50px;
+        height: 30px;
+        margin: 20px 0;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .progress-fill {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        height: 100%;
+        border-radius: 50px;
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        min-width: 50px;
+      }
+
+      .streak-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+
+      .reset-button {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-size: 1em;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        transition: all 0.3s;
+        margin-top: 20px;
+      }
+
+      .reset-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 7px 20px rgba(240, 147, 251, 0.6);
+      }
+
+      .emoji {
+        font-size: 1.3em;
+        margin-right: 5px;
+      }
+
+      @media (max-width: 768px) {
+        .header h1 {
+          font-size: 1.8em;
+        }
+
+        .stats-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .task-item {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .task-points {
+          align-self: flex-end;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎯 DailyBasisRoute</h1>
+        <p>Mapeando suas rotas diárias para o sucesso</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="totalPoints">0</div>
+          <div class="stat-label">Pontos Hoje</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="maxPoints">115</div>
+          <div class="stat-label">Pontos Possíveis</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="streak">0</div>
+          <div class="stat-label">Dias Sequência 🔥</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="weekProgress">0%</div>
+          <div class="stat-label">Progresso Semanal</div>
+        </div>
+      </div>
+
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%">
+          <span id="progressText">0/115 pts</span>
+        </div>
+      </div>
+
+      <div class="tasks-container">
+        <div class="section-title">
+          <span><span class="emoji">⚡</span> Pilares Fixos</span>
+          <span class="section-points">50 pontos base</span>
+        </div>
+        <div id="pilaresTasks"></div>
+      </div>
+
+      <div class="tasks-container">
+        <div class="section-title">
+          <span><span class="emoji">📚</span> Cardápio de Estudos</span>
+          <span class="section-points">Escolha até 50 pontos</span>
+        </div>
+        <div id="cardapioTasks"></div>
+      </div>
+
+      <div class="tasks-container">
+        <div class="section-title">
+          <span><span class="emoji">🌟</span> Bônus Extras</span>
+          <span class="section-points">Até +15 pontos</span>
+        </div>
+        <div id="bonusTasks"></div>
+      </div>
+
+      <button class="reset-button" onclick="resetDay()">🔄 Resetar Dia</button>
+    </div>
+
+    <script>
+      // Estrutura de tarefas
+      const tasks = {
+        pilares: [
+          {
+            id: "dev-manha",
+            name: "Devocional Manhã",
+            emoji: "☀️",
+            points: 12.5,
+            details: "25min de leitura/oração",
+          },
+          {
+            id: "dev-noite",
+            name: "Devocional Noite",
+            emoji: "🌙",
+            points: 12.5,
+            details: "25min de leitura/oração",
+          },
+          {
+            id: "academia",
+            name: "Atividade Física",
+            emoji: "💪",
+            points: 15,
+            details: "Todos os dias",
+          },
+          {
+            id: "dormir-cedo",
+            name: "Dormiu antes das 23h",
+            emoji: "😴",
+            points: 7.5,
+            details: "Rotina de sono",
+          },
+          {
+            id: "acordar-cedo",
+            name: "Acordou 7h sem voltar",
+            emoji: "⏰",
+            points: 7.5,
+            details: "Sem voltar pra cama!",
+          },
+        ],
+        cardapio: [
+          {
+            id: "estudo-ds",
+            name: "Estudo DS/Python",
+            emoji: "📊",
+            points: 20,
+            details: "2-3h focado com anotações",
+          },
+          {
+            id: "ingles",
+            name: "Inglês",
+            emoji: "🗣️",
+            points: 10,
+            details: "1h de prática",
+          },
+          {
+            id: "projeto-hoteis",
+            name: "Análise de Projeto",
+            emoji: "🏨",
+            points: 10,
+            details: "1h revisando código/relatório",
+          },
+          {
+            id: "sql",
+            name: "SQL Prático",
+            emoji: "🗄️",
+            points: 10,
+            details: "1h praticando SQL",
+          },
+          {
+            id: "storytelling",
+            name: "Leitura Diária",
+            emoji: "📖",
+            points: 10,
+            details: "1h leitura + anotações",
+          },
+        ],
+        bonus: [
+          {
+            id: "obsidian",
+            name: "Anotou no Obsidian",
+            emoji: "📝",
+            points: 5,
+            details: "Documentou aprendizado",
+          },
+          {
+            id: "academia-rapida",
+            name: "Academia <1h30",
+            emoji: "⚡",
+            points: 5,
+            details: "Treino focado e eficiente",
+          },
+          {
+            id: "video-notas",
+            name: "Vídeo + Notas",
+            emoji: "🎥",
+            points: 5,
+            details: "Assistiu algo interessante e documentou",
+          },
+          {
+            id: "pedal",
+            name: "Pedal",
+            emoji: "🚴",
+            points: 5,
+            details: "Quarta/Sábado/Domingo",
+          },
+        ],
+      };
+
+      // Estado das tarefas (carrega do localStorage)
+      let taskState = JSON.parse(localStorage.getItem("dailyBasisRoute")) || {};
+      let streak = parseInt(localStorage.getItem("streak")) || 0;
+      let lastCompletionDate = localStorage.getItem("lastCompletionDate");
+
+      // Verificar se mudou o dia
+      function checkNewDay() {
+        const today = new Date().toDateString();
+        const savedDate = localStorage.getItem("currentDate");
+
+        if (savedDate !== today) {
+          // Verificar se ontem bateu 80+ pontos
+          const yesterdayPoints = calculateTotalPoints();
+          if (yesterdayPoints >= 80 && savedDate) {
+            streak++;
+            localStorage.setItem("streak", streak);
+            localStorage.setItem("lastCompletionDate", savedDate);
+          } else if (savedDate) {
+            // Quebrou a sequência
+            streak = 0;
+            localStorage.setItem("streak", "0");
+          }
+
+          // Reset para o novo dia
+          taskState = {};
+          localStorage.setItem("currentDate", today);
+          localStorage.setItem("dailyBasisRoute", JSON.stringify(taskState));
+        }
+      }
+
+      // Renderizar tarefas
+      function renderTasks(category, containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+
+        tasks[category].forEach((task) => {
+          const isCompleted = taskState[task.id] || false;
+          const taskElement = document.createElement("div");
+          taskElement.className = `task-item ${isCompleted ? "completed" : ""}`;
+          taskElement.onclick = () => toggleTask(task.id, category);
+
+          taskElement.innerHTML = `
+                    <div class="checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">${task.emoji} ${task.name}</div>
+                        <div class="task-details">${task.details}</div>
+                    </div>
+                    <div class="task-points">+${task.points}</div>
+                `;
+
+          container.appendChild(taskElement);
+        });
+      }
+
+      // Toggle tarefa
+      function toggleTask(taskId, category) {
+        taskState[taskId] = !taskState[taskId];
+        localStorage.setItem("dailyBasisRoute", JSON.stringify(taskState));
+        updateUI();
+      }
+
+      // Calcular pontos totais
+      function calculateTotalPoints() {
+        let total = 0;
+
+        Object.keys(taskState).forEach((taskId) => {
+          if (taskState[taskId]) {
+            // Procurar a tarefa em todas as categorias
+            ["pilares", "cardapio", "bonus"].forEach((category) => {
+              const task = tasks[category].find((t) => t.id === taskId);
+              if (task) total += task.points;
+            });
+          }
+        });
+
+        return total;
+      }
+
+      // Atualizar interface
+      function updateUI() {
+        renderTasks("pilares", "pilaresTasks");
+        renderTasks("cardapio", "cardapioTasks");
+        renderTasks("bonus", "bonusTasks");
+
+        const total = calculateTotalPoints();
+        const maxPoints = 115;
+        const percentage = Math.min((total / maxPoints) * 100, 100);
+
+        document.getElementById("totalPoints").textContent = total;
+        document.getElementById("progressFill").style.width = percentage + "%";
+        document.getElementById(
+          "progressText"
+        ).textContent = `${total}/${maxPoints} pts`;
+        document.getElementById("streak").textContent = streak;
+
+        // Calcular progresso semanal
+        const weekProgress = calculateWeekProgress();
+        document.getElementById("weekProgress").textContent =
+          weekProgress + "%";
+      }
+
+      function calculateWeekProgress() {
+        const weekData = JSON.parse(localStorage.getItem('weekData')) || {};
+        const today = new Date().toDateString();
+        weekData[today] = calculateTotalPoints();
+        localStorage.setItem('weekData', JSON.stringify(weekData));
+        const last7Days = Object.keys(weekData).slice(-7);
+        const totalWeekPoints = last7Days.reduce((sum, day) => sum + (weekData[day] || 0), 0);
+        const maxWeekPoints = last7Days.length * 115;
+
+        return Math.round((totalWeekPoints / maxWeekPoints) * 100);
+      }
+
+      // Resetar dia
+      function resetDay() {
+        if (
+          confirm(
+            "Tem certeza que quer resetar o dia? Isso vai apagar todo o progresso de hoje."
+          )
+        ) {
+          taskState = {};
+          localStorage.setItem("dailyBasisRoute", JSON.stringify(taskState));
+          updateUI();
+        }
+      }
+
+      // Inicializar
+      checkNewDay();
+      updateUI();
+    </script>
+  </body>
+</html>
