@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
+import pytz
 import json
 import os
 
@@ -11,6 +12,13 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dailybasisroute-secret-key-2025')
 
 # Configuração do banco de dados
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:31528899japan@db.flzqqwelasfzipzahzqw.supabase.co:5432/postgres')
+
+# Timezone brasileiro
+BRAZIL_TZ = pytz.timezone('America/Sao_Paulo')
+
+def get_brazil_now():
+    """Retorna datetime atual no timezone do Brasil"""
+    return datetime.now(BRAZIL_TZ)
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL)
@@ -213,7 +221,7 @@ def dashboard():
         return redirect(url_for('index'))
     
     user_id = session['user_id']
-    today = datetime.now().date().isoformat()
+    today = get_brazil_now().date().isoformat()
     
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -278,7 +286,7 @@ def toggle_task():
     
     user_id = session['user_id']
     task_id = request.json.get('task_id')
-    date = request.json.get('date', datetime.now().date().isoformat())
+    date = request.json.get('date', get_brazil_now().date().isoformat())
     
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -347,7 +355,7 @@ def save_note():
     
     user_id = session['user_id']
     content = request.json.get('content')
-    date = request.json.get('date', datetime.now().date().isoformat())
+    date = request.json.get('date', get_brazil_now().date().isoformat())
     
     conn = get_db()
     cursor = conn.cursor()
@@ -371,7 +379,7 @@ def save_mood():
     
     user_id = session['user_id']
     mood_score = request.json.get('mood_score')
-    date = request.json.get('date', datetime.now().date().isoformat())
+    date = request.json.get('date', get_brazil_now().date().isoformat())
     
     # Validar mood_score
     if mood_score is None or mood_score < 0 or mood_score > 100:
@@ -400,7 +408,7 @@ def add_custom_task():
     user_id = session['user_id']
     name = request.json.get('name')
     points = request.json.get('points')
-    date = request.json.get('date', datetime.now().date().isoformat())
+    date = request.json.get('date', get_brazil_now().date().isoformat())
     
     conn = get_db()
     cursor = conn.cursor()
