@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - DailyBasisRoute</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1>🎯 DailyBasisRoute</h1>
+            <div class="nav-links">
+                <a href="/dashboard" class="active">Dashboard</a>
+                <a href="/analytics">Analytics</a>
+                <a href="/historico">Histórico</a>
+                <a href="/logout">Sair</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="welcome-header">
+            <h2>Olá, {{ session.user_name }}! 👋</h2>
+            <p>{{ today }}</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPoints">0</div>
+                <div class="stat-label">Pontos Hoje</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">100</div>
+                <div class="stat-label">Pontos Possíveis</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ streak }}</div>
+                <div class="stat-label">Dias Sequência 🔥</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="weekProgress">0%</div>
+                <div class="stat-label">Progresso Semanal</div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%">
+                <span id="progressText">0/115 pts</span>
+            </div>
+        </div>
+
+        <!-- Pilares Fixos -->
+        <div class="tasks-container">
+            <div class="section-title">
+                <span><span class="emoji">⚡</span> Pilares Fixos</span>
+                <span class="section-points">40 pontos base</span>
+            </div>
+            <div id="pilaresTasks">
+                {% for task in tasks.pilares %}
+                <div class="task-item {% if task.completed %}completed{% endif %}" 
+                     data-task-id="{{ task.id }}" 
+                     data-points="{{ task.points }}">
+                    <div class="checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">{{ task.emoji }} {{ task.name }}</div>
+                        <div class="task-details">{{ task.details }}</div>
+                    </div>
+                    <div class="task-points">+{{ task.points }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Cardápio de Estudos -->
+        <div class="tasks-container">
+            <div class="section-title">
+                <span><span class="emoji">📚</span> Cardápio de Estudos</span>
+                <span class="section-points">Escolha até 40 pontos</span>
+            </div>
+            <div id="cardapioTasks">
+                {% for task in tasks.cardapio %}
+                <div class="task-item {% if task.completed %}completed{% endif %}" 
+                     data-task-id="{{ task.id }}" 
+                     data-points="{{ task.points }}">
+                    <div class="checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">{{ task.emoji }} {{ task.name }}</div>
+                        <div class="task-details">{{ task.details }}</div>
+                    </div>
+                    <div class="task-points">+{{ task.points }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Bônus Extras -->
+        <div class="tasks-container">
+            <div class="section-title">
+                <span><span class="emoji">🌟</span> Bônus Extras</span>
+                <span class="section-points">Até +20 pontos</span>
+            </div>
+            <div id="bonusTasks">
+                {% for task in tasks.bonus %}
+                <div class="task-item {% if task.completed %}completed{% endif %}" 
+                     data-task-id="{{ task.id }}" 
+                     data-points="{{ task.points }}">
+                    <div class="checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">{{ task.emoji }} {{ task.name }}</div>
+                        <div class="task-details">{{ task.details }}</div>
+                    </div>
+                    <div class="task-points">+{{ task.points }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tarefas do Dia -->
+        <div class="tasks-container">
+            <div class="section-title">
+                <span><span class="emoji">➕</span> Tarefas do Dia</span>
+                <button class="btn-add-task" onclick="showAddTaskModal()">+ Adicionar</button>
+            </div>
+            <div id="customTasks">
+                {% for task in custom_tasks %}
+                <div class="custom-task-item" data-task-id="{{ task.id }}" data-points="{{ task.points }}">
+                    <div class="task-info">
+                        <div class="task-name">✅ {{ task.name }}</div>
+                    </div>
+                    <div class="task-points">+{{ task.points }}</div>
+                    <button class="btn-delete-task" onclick="deleteCustomTask({{ task.id }})">🗑️</button>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="noCustomTasks" {% if custom_tasks %}style="display: none;"{% endif %} class="empty-task-state">
+                <p>Nenhuma tarefa extra hoje. Clique em "+ Adicionar" para registrar algo que fez!</p>
+            </div>
+        </div>
+
+        <!-- Nota do Dia -->
+        <div class="tasks-container">
+            <div class="section-title">
+                <span><span class="emoji">📝</span> Nota do Dia</span>
+            </div>
+            <textarea id="dailyNote" class="daily-note" placeholder="Como foi seu dia? O que aprendeu? Dificuldades?">{{ note }}</textarea>
+            <button class="btn-save" onclick="saveNote()">💾 Salvar Nota</button>
+        </div>
+
+        <!-- Mood Tracker -->
+        <div class="tasks-container mood-tracker">
+            <div class="section-title">
+                <span><span class="emoji" id="moodEmoji">😐</span> Como você está se sentindo hoje?</span>
+            </div>
+            <div class="mood-slider-container">
+                <input type="range" id="moodSlider" min="0" max="100" value="{{ mood }}" class="mood-slider">
+                <div class="mood-labels">
+                    <span>😢 0</span>
+                    <span id="moodValue" class="mood-value">{{ mood }}</span>
+                    <span>100 😊</span>
+                </div>
+            </div>
+            <div class="mood-description" id="moodDescription"></div>
+        </div>
+
+        <!-- Exportar Dados -->
+        <div class="export-section">
+            <h3>📊 Exportar para Análise</h3>
+            <div class="export-buttons">
+                <button class="btn-export" onclick="exportData('week')">📅 Última Semana</button>
+                <button class="btn-export" onclick="exportData('biweekly')">📆 Últimas 2 Semanas</button>
+                <button class="btn-export" onclick="exportData('month')">📊 Último Mês</button>
+                <button class="btn-export" onclick="exportData('all')">🗂️ Tudo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Adicionar Tarefa -->
+    <div id="addTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddTaskModal()">&times;</span>
+            <h3>➕ Adicionar Tarefa do Dia</h3>
+            <p class="modal-subtitle">Registre algo que você fez hoje!</p>
+            
+            <div class="form-group">
+                <label>Nome da tarefa</label>
+                <input type="text" id="taskName" placeholder="Ex: Cortar grama, Lavar carro, Organizar quarto...">
+            </div>
+            
+            <div class="form-group">
+                <label>Pontos</label>
+                <div class="points-selector">
+                    <button class="point-btn" onclick="selectPoints(5)">5pts</button>
+                    <button class="point-btn" onclick="selectPoints(10)">10pts</button>
+                    <button class="point-btn" onclick="selectPoints(15)">15pts</button>
+                </div>
+                <input type="hidden" id="taskPoints" value="10">
+            </div>
+            
+            <button class="btn-primary" onclick="addCustomTask()">Adicionar Tarefa</button>
+        </div>
+    </div>
+
+    <script>
+        const today = "{{ today }}";
+        let selectedPoints = 10;
+        
+        function showAddTaskModal() {
+            document.getElementById('addTaskModal').style.display = 'block';
+        }
+        
+        function closeAddTaskModal() {
+            document.getElementById('addTaskModal').style.display = 'none';
+            document.getElementById('taskName').value = '';
+            selectedPoints = 10;
+            document.querySelectorAll('.point-btn').forEach(btn => btn.classList.remove('selected'));
+            document.querySelectorAll('.point-btn')[1].classList.add('selected');
+        }
+        
+        function selectPoints(points) {
+            selectedPoints = points;
+            document.getElementById('taskPoints').value = points;
+            document.querySelectorAll('.point-btn').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+        
+        async function addCustomTask() {
+            const name = document.getElementById('taskName').value.trim();
+            
+            if (!name) {
+                alert('Digite o nome da tarefa!');
+                return;
+            }
+            
+            const response = await fetch('/api/add_custom_task', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, points: selectedPoints, date: today})
+            });
+            
+            if (response.ok) {
+                closeAddTaskModal();
+                location.reload();
+            }
+        }
+        
+        async function deleteCustomTask(taskId) {
+            if (!confirm('Remover esta tarefa?')) return;
+            
+            const response = await fetch('/api/delete_custom_task', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({task_id: taskId})
+            });
+            
+            if (response.ok) {
+                location.reload();
+            }
+        }
+        
+        // Calcular pontos totais ao carregar
+        function calculateTotalPoints() {
+            let total = 0;
+            document.querySelectorAll('.task-item.completed').forEach(task => {
+                total += parseFloat(task.dataset.points);
+            });
+            // Adicionar pontos das tarefas customizadas
+            document.querySelectorAll('.custom-task-item').forEach(task => {
+                total += parseFloat(task.dataset.points);
+            });
+            return total;
+        }
+
+        function updateUI() {
+            const total = calculateTotalPoints();
+            const percentage = Math.min((total / 100) * 100, 100);
+            
+            document.getElementById('totalPoints').textContent = total;
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = `${total}/100 pts`;
+        }
+
+        // Toggle tarefa
+        document.querySelectorAll('.task-item').forEach(item => {
+            item.addEventListener('click', async function() {
+                const taskId = this.dataset.taskId;
+                
+                // Toggle visual IMEDIATO (antes da requisição)
+                this.classList.toggle('completed');
+                updateUI();
+                
+                // Salvar no backend (assíncrono)
+                const response = await fetch('/api/toggle_task', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({task_id: taskId, date: today})
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Atualizar streak badge sem reload
+                    const streakElement = document.querySelector('.stat-card:nth-child(2) .stat-number');
+                    if (streakElement && data.streak !== undefined) {
+                        streakElement.textContent = data.streak;
+                    }
+                } else {
+                    // Se deu erro, desfaz o toggle
+                    this.classList.toggle('completed');
+                    updateUI();
+                }
+            });
+        });
+
+        // Salvar nota
+        async function saveNote() {
+            const content = document.getElementById('dailyNote').value;
+            
+            const response = await fetch('/api/save_note', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({content, date: today})
+            });
+            
+            if (response.ok) {
+                alert('Nota salva! ✅');
+            }
+        }
+
+        // Exportar dados
+        async function exportData(period = 'all') {
+            const response = await fetch(`/api/export?period=${period}`);
+            const data = await response.json();
+            
+            const jsonStr = JSON.stringify(data, null, 2);
+            await navigator.clipboard.writeText(jsonStr);
+            
+            const periodNames = {
+                'week': 'última semana',
+                'biweekly': 'últimas 2 semanas', 
+                'month': 'último mês',
+                'all': 'todos os dados'
+            };
+            
+            alert(`✅ Dados da ${periodNames[period]} copiados!\n\nCole no Claude para análise.`);
+        }
+        
+        // Mood Tracker
+        const moodSlider = document.getElementById('moodSlider');
+        const moodValue = document.getElementById('moodValue');
+        const moodEmoji = document.getElementById('moodEmoji');
+        const moodDescription = document.getElementById('moodDescription');
+        
+        function updateMoodDisplay(value) {
+            moodValue.textContent = value;
+            
+            if (value <= 20) {
+                moodEmoji.textContent = '😢';
+                moodDescription.textContent = 'Dia difícil... Lembre-se que dias ruins passam!';
+                moodDescription.style.color = '#f5576c';
+            } else if (value <= 40) {
+                moodEmoji.textContent = '😕';
+                moodDescription.textContent = 'Não está tão bom, mas amanhã pode ser melhor!';
+                moodDescription.style.color = '#f093fb';
+            } else if (value <= 60) {
+                moodEmoji.textContent = '😐';
+                moodDescription.textContent = 'Dia neutro, normal.';
+                moodDescription.style.color = '#999';
+            } else if (value <= 80) {
+                moodEmoji.textContent = '🙂';
+                moodDescription.textContent = 'Dia bom! Continue assim!';
+                moodDescription.style.color = '#667eea';
+            } else {
+                moodEmoji.textContent = '😊';
+                moodDescription.textContent = 'Dia excelente! Aproveite esse momento!';
+                moodDescription.style.color = '#00d084';
+            }
+        }
+        
+        if (moodSlider) {
+            moodSlider.addEventListener('input', (e) => {
+                updateMoodDisplay(e.target.value);
+            });
+            
+            moodSlider.addEventListener('change', async (e) => {
+                const moodScore = parseInt(e.target.value);
+                await fetch('/api/save_mood', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mood_score: moodScore, date: today})
+                });
+            });
+            
+            // Inicializar display do mood
+            updateMoodDisplay(moodSlider.value);
+        }
+
+        // Auto-save da nota a cada 30 segundos
+        setInterval(() => {
+            const content = document.getElementById('dailyNote').value;
+            if (content.trim()) {
+                fetch('/api/save_note', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content, date: today})
+                });
+            }
+        }, 30000);
+
+        // Inicializar
+        updateUI();
+        
+        // Selecionar 10pts por padrão
+        document.addEventListener('DOMContentLoaded', function() {
+            const pointBtns = document.querySelectorAll('.point-btn');
+            if (pointBtns.length > 1) {
+                pointBtns[1].classList.add('selected');
+            }
+        });
+    </script>
+</body>
+</html>

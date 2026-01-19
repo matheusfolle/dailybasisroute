@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import pytz
 import json
 import os
@@ -116,31 +116,61 @@ def init_db():
         )
     ''')
     
+    # Tabela de relatórios diários (4 perguntas)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS daily_reports (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            date DATE NOT NULL,
+            work_performance INTEGER CHECK (work_performance >= 1 AND work_performance <= 10),
+            accomplishment TEXT,
+            challenge TEXT,
+            random_thought TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            UNIQUE(user_id, date)
+        )
+    ''')
+    
+    # Tabela de desempenho no trabalho (para heatmap)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS work_performance (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            date DATE NOT NULL,
+            performance_score INTEGER NOT NULL CHECK (performance_score >= 1 AND performance_score <= 10),
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            UNIQUE(user_id, date)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
 def setup_default_tasks(user_id):
-    """Cria as tarefas padrão para um novo usuário"""
+    """Create default tasks for a new user"""
     conn = get_db()
-    cursor = conn.cursor()  # Cursor normal
+    cursor = conn.cursor()  # Normal cursor
     
     default_tasks = {
-        'pilares': [
-            {'name': 'Devocional Diário', 'emoji': '🙏', 'points': 20, 'details': 'Manhã OU noite - 25min'},
-            {'name': 'Dormiu antes das 23h', 'emoji': '😴', 'points': 10, 'details': 'Rotina de sono'},
-            {'name': 'Acordou cedo sem voltar', 'emoji': '⏰', 'points': 10, 'details': 'Acordou e levantou!'},
+        'pillars': [
+            {'name': 'Daily Devotion', 'emoji': 'prayer', 'points': 15, 'details': 'Morning OR evening - 25min'},
+            {'name': 'Slept Before 11PM', 'emoji': 'bed', 'points': 10, 'details': 'Sleep routine'},
+            {'name': 'Woke Up Early', 'emoji': 'sunrise', 'points': 10, 'details': 'Got up without snoozing!'},
+            {'name': 'Completed Google Agenda Tasks', 'emoji': 'calendar-check', 'points': 15, 'details': 'All tasks from previous day'},
         ],
-        'cardapio': [
-            {'name': 'Atividade Física', 'emoji': '💪', 'points': 15, 'details': 'Academia, pedal, corrida - qualquer tipo'},
-            {'name': 'Estudo DS/Python', 'emoji': '📊', 'points': 15, 'details': '1-2h focado'},
-            {'name': 'Inglês', 'emoji': '🗣️', 'points': 10, 'details': '30min-1h de prática'},
-            {'name': 'SQL Prático', 'emoji': '🗄️', 'points': 10, 'details': '30min-1h praticando'},
-            {'name': 'Leitura', 'emoji': '📖', 'points': 10, 'details': 'Livros técnicos, artigos'},
+        'tasks': [
+            {'name': 'Programming', 'emoji': 'code', 'points': 15, 'details': '1-2h focused study'},
+            {'name': 'English', 'emoji': 'language', 'points': 10, 'details': '30min-1h practice'},
+            {'name': 'SQL', 'emoji': 'database', 'points': 10, 'details': '30min-1h hands-on'},
+            {'name': 'Physical Activity', 'emoji': 'dumbbell', 'points': 15, 'details': 'Gym, bike ride, running'},
+            {'name': 'Reading', 'emoji': 'book-open', 'points': 10, 'details': 'Technical books, articles'},
         ],
         'bonus': [
-            {'name': 'Anotou no Obsidian', 'emoji': '📝', 'points': 5, 'details': 'Documentou aprendizado'},
-            {'name': 'Treino Focado <1h30', 'emoji': '⚡', 'points': 5, 'details': 'Academia eficiente'},
-            {'name': 'Pedal Extra', 'emoji': '🚴', 'points': 10, 'details': 'Além da atividade física'},
+            {'name': 'Obsidian Thoughts', 'emoji': 'brain', 'points': 5, 'details': 'Knowledge management'},
+            {'name': 'Bike Ride', 'emoji': 'bicycle', 'points': 10, 'details': 'Cycling session'},
+            {'name': 'Focused Training <90min', 'emoji': 'stopwatch', 'points': 5, 'details': 'Efficient gym session'},
+            {'name': 'Deep Work Block >2hrs', 'emoji': 'crosshairs', 'points': 10, 'details': 'Uninterrupted focus'},
+            {'name': 'Global Student', 'emoji': 'globe', 'points': 5, 'details': 'Studied skills for global collaboration'},
         ]
     }
     
@@ -151,7 +181,7 @@ def setup_default_tasks(user_id):
                 VALUES (%s, %s, %s, %s, %s, %s)
             ''', (user_id, category, task['name'], task['emoji'], task['points'], task['details']))
     
-    # Criar registro de streak
+    # Create streak record
     cursor.execute('INSERT INTO streaks (user_id) VALUES (%s)', (user_id,))
     
     conn.commit()
@@ -266,8 +296,8 @@ def dashboard():
     
     conn.close()
     
-    # Organizar tarefas por categoria
-    tasks_by_category = {'pilares': [], 'cardapio': [], 'bonus': []}
+    # Organize tasks by category
+    tasks_by_category = {'pillars': [], 'tasks': [], 'bonus': []}
     for task in tasks:
         tasks_by_category[task['category']].append(dict(task))
     
@@ -291,7 +321,7 @@ def toggle_task():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
-    # Verificar se já existe um registro
+    # Check if record exists
     cursor.execute('''
         SELECT completed FROM daily_logs 
         WHERE user_id = %s AND task_id = %s AND date = %s
@@ -299,53 +329,63 @@ def toggle_task():
     existing = cursor.fetchone()
     
     if existing:
-        # Toggle
         new_status = not existing['completed']
         cursor.execute('''
             UPDATE daily_logs SET completed = %s 
             WHERE user_id = %s AND task_id = %s AND date = %s
         ''', (new_status, user_id, task_id, date))
     else:
-        # Criar novo
         cursor.execute('''
             INSERT INTO daily_logs (user_id, task_id, date, completed)
             VALUES (%s, %s, %s, TRUE)
         ''', (user_id, task_id, date))
     
+    # OPTIMIZED: Single query for total points
+    cursor.execute('''
+        SELECT 
+            (SELECT COALESCE(SUM(t.points), 0)
+             FROM daily_logs dl
+             JOIN tasks t ON dl.task_id = t.id
+             WHERE dl.user_id = %s AND dl.date = %s AND dl.completed = TRUE) +
+            (SELECT COALESCE(SUM(points), 0)
+             FROM custom_tasks
+             WHERE user_id = %s AND date = %s) as total_points,
+            (SELECT current_streak FROM streaks WHERE user_id = %s) as current_streak,
+            (SELECT last_completion_date FROM streaks WHERE user_id = %s) as last_date
+    ''', (user_id, date, user_id, date, user_id, user_id))
+    
+    result = cursor.fetchone()
+    total_points = float(result['total_points'])
+    current_streak = result['current_streak'] or 0
+    last_date = result['last_date']
+    
+    # Update streak if >= 70 points
+    if total_points >= 70:
+        if last_date:
+            last_date_obj = last_date if isinstance(last_date, datetime.date) else datetime.fromisoformat(str(last_date)).date()
+            current_date_obj = datetime.fromisoformat(date).date()
+            diff = (current_date_obj - last_date_obj).days
+            
+            if diff == 1:
+                current_streak += 1
+            elif diff > 1:
+                current_streak = 1
+        else:
+            current_streak = 1
+        
+        cursor.execute('''
+            UPDATE streaks 
+            SET current_streak = %s, last_completion_date = %s
+            WHERE user_id = %s
+        ''', (current_streak, date, user_id))
+    
     conn.commit()
-    
-    # Calcular pontos totais do dia (tarefas normais + customizadas)
-    cursor.execute('''
-        SELECT SUM(t.points) as total
-        FROM daily_logs dl
-        JOIN tasks t ON dl.task_id = t.id
-        WHERE dl.user_id = %s AND dl.date = %s AND dl.completed = TRUE
-    ''', (user_id, date))
-    points = cursor.fetchone()
-    
-    cursor.execute('''
-        SELECT SUM(points) as total
-        FROM custom_tasks
-        WHERE user_id = %s AND date = %s
-    ''', (user_id, date))
-    custom_points = cursor.fetchone()
-    
-    total_points = (float(points['total']) if points and points['total'] else 0) + (float(custom_points['total']) if custom_points and custom_points['total'] else 0)
-    
-    # Atualizar streak se necessário
-    update_streak(user_id, date, total_points)
-    
-    # Buscar streak atualizado
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('SELECT current_streak FROM streaks WHERE user_id = %s', (user_id,))
-    streak_data = cursor.fetchone()
-    
     conn.close()
     
     return jsonify({
         'success': True, 
         'total_points': total_points,
-        'streak': streak_data['current_streak'] if streak_data else 0
+        'streak': current_streak
     })
 
 @app.route('/api/save_note', methods=['POST'])
@@ -394,6 +434,53 @@ def save_mood():
         ON CONFLICT (user_id, date) 
         DO UPDATE SET mood_score = EXCLUDED.mood_score
     ''', (user_id, date, mood_score))
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True})
+
+@app.route('/api/save_daily_report', methods=['POST'])
+def save_daily_report():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user_id = session['user_id']
+    data = request.json
+    date = data.get('date', get_brazil_now().date().isoformat())
+    
+    work_performance = data.get('work_performance')
+    accomplishment = data.get('accomplishment', '')
+    challenge = data.get('challenge', '')
+    random_thought = data.get('random_thought', '')
+    
+    # Validate work_performance
+    if work_performance is not None:
+        if work_performance < 1 or work_performance > 10:
+            return jsonify({'error': 'Invalid work performance score'}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO daily_reports (user_id, date, work_performance, accomplishment, challenge, random_thought)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (user_id, date) 
+        DO UPDATE SET 
+            work_performance = EXCLUDED.work_performance,
+            accomplishment = EXCLUDED.accomplishment,
+            challenge = EXCLUDED.challenge,
+            random_thought = EXCLUDED.random_thought
+    ''', (user_id, date, work_performance, accomplishment, challenge, random_thought))
+    
+    # Also save work_performance to work_performance table for heatmap
+    if work_performance is not None:
+        cursor.execute('''
+            INSERT INTO work_performance (user_id, date, performance_score)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, date)
+            DO UPDATE SET performance_score = EXCLUDED.performance_score
+        ''', (user_id, date, work_performance))
     
     conn.commit()
     conn.close()
@@ -553,14 +640,16 @@ def export_data():
     
     # Buscar dados com filtro de período
     cursor.execute(f'''
-        SELECT dl.date, t.name, t.category, t.points, dl.completed, n.content as note, m.mood_score
-        FROM daily_logs dl
-        JOIN tasks t ON dl.task_id = t.id
-        LEFT JOIN notes n ON dl.user_id = n.user_id AND dl.date = n.date
-        LEFT JOIN daily_mood m ON dl.user_id = m.user_id AND dl.date = m.date
-        WHERE dl.user_id = %s {date_filter}
-        ORDER BY dl.date DESC
-    ''', (user_id,))
+    SELECT dl.date, t.name, t.category, t.points, dl.completed, 
+           dr.work_performance, dr.accomplishment, dr.challenge, dr.random_thought,
+           m.mood_score
+    FROM daily_logs dl
+    JOIN tasks t ON dl.task_id = t.id
+    LEFT JOIN daily_reports dr ON dl.user_id = dr.user_id AND dl.date = dr.date
+    LEFT JOIN daily_mood m ON dl.user_id = m.user_id AND dl.date = m.date
+    WHERE dl.user_id = %s {date_filter}
+    ORDER BY dl.date DESC
+''', (user_id,))
     logs = cursor.fetchall()
     
     # Buscar tarefas customizadas
@@ -583,7 +672,10 @@ def export_data():
                 'date': date,
                 'tasks': [],
                 'total_points': 0,
-                'note': log['note'],
+                'work_performance': int(log['work_performance']) if log['work_performance'] is not None else None,
+                'accomplishment': log['accomplishment'],
+                'challenge': log['challenge'],
+                'random_thought': log['random_thought'],
                 'mood': int(log['mood_score']) if log['mood_score'] is not None else None
             }
         
@@ -708,10 +800,9 @@ def update_streak(user_id, current_date, points):
     current_streak = streak['current_streak']
     last_date = streak['last_completion_date']
     
-    # Se bateu 60+ pontos
-    if points >= 60:
+    if points >= 70:
         if last_date:
-            last_date_obj = datetime.fromisoformat(last_date).date()
+            last_date_obj = last_date if isinstance(last_date, date) else datetime.fromisoformat(str(last_date)).date()
             current_date_obj = datetime.fromisoformat(current_date).date()
             diff = (current_date_obj - last_date_obj).days
             
@@ -735,6 +826,62 @@ def update_streak(user_id, current_date, points):
     
     conn.commit()
     conn.close()
+
+@app.route('/api/weekly_progress')
+def weekly_progress():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user_id = session['user_id']
+    today = get_brazil_now().date()
+    week_ago = today - timedelta(days=7)
+    
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Get points from regular tasks for the last 7 days
+    cursor.execute('''
+        SELECT dl.date, SUM(t.points) as points
+        FROM daily_logs dl
+        JOIN tasks t ON dl.task_id = t.id
+        WHERE dl.user_id = %s AND dl.completed = TRUE 
+        AND dl.date >= %s AND dl.date <= %s
+        GROUP BY dl.date
+    ''', (user_id, week_ago, today))
+    
+    week_tasks = cursor.fetchall()
+    
+    # Get points from custom tasks for the last 7 days
+    cursor.execute('''
+        SELECT date, SUM(points) as points
+        FROM custom_tasks
+        WHERE user_id = %s AND date >= %s AND date <= %s
+        GROUP BY date
+    ''', (user_id, week_ago, today))
+    
+    week_custom = cursor.fetchall()
+    
+    conn.close()
+    
+    # Combine points by date
+    daily_totals = {}
+    for row in week_tasks:
+        daily_totals[str(row['date'])] = float(row['points']) if row['points'] else 0
+    
+    for row in week_custom:
+        date = str(row['date'])
+        daily_totals[date] = daily_totals.get(date, 0) + (float(row['points']) if row['points'] else 0)
+    
+    # Calculate average (only count days with data)
+    if daily_totals:
+        avg_points = sum(daily_totals.values()) / len(daily_totals)
+        # Assuming max possible is 120 (your "normal day")
+        avg_percentage = (avg_points / 120) * 100
+    else:
+        avg_percentage = 0
+    
+    return jsonify({'percentage': round(avg_percentage, 1)})
+
 
 if __name__ == '__main__':
     # Inicializar banco se necessário
