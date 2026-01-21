@@ -360,7 +360,7 @@ def toggle_task():
     last_date = result['last_date']
     
     # Update streak if >= 70 points
-    if total_points >= 70:
+    if total_points >= 60:
         if last_date:
             last_date_obj = last_date if isinstance(last_date, datetime.date) else datetime.fromisoformat(str(last_date)).date()
             current_date_obj = datetime.fromisoformat(date).date()
