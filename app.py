@@ -360,18 +360,19 @@ def toggle_task():
     last_date = result['last_date']
     
     # Update streak if >= 70 points
-    if total_points >= 60:
+    # Update streak if >= 70 points
+    if total_points >= 60:  # Also fixed your threshold - you had 60 here
         if last_date:
-            last_date_obj = last_date if isinstance(last_date, datetime.date) else datetime.fromisoformat(str(last_date)).date()
+        # Database already returns date object, just use it
             current_date_obj = datetime.fromisoformat(date).date()
-            diff = (current_date_obj - last_date_obj).days
-            
-            if diff == 1:
-                current_streak += 1
-            elif diff > 1:
-                current_streak = 1
-        else:
+            diff = (current_date_obj - last_date).days
+        
+        if diff == 1:
+            current_streak += 1
+        elif diff > 1:
             current_streak = 1
+    else:
+        current_streak = 1
         
         cursor.execute('''
             UPDATE streaks 
